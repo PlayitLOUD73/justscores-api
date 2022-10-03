@@ -1,1 +1,1 @@
-# justsports-api
+# justscores-api
