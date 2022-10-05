@@ -52,6 +52,62 @@ func conferenceShortToLong(con string) string {
 
 }
 
+func games(w http.ResponseWriter, r *http.Request) {
+	var games []Game
+	var client http.Client
+	var bearer string = "Bearer " + PAT
+
+	var year, team string
+
+	year = r.URL.Query().Get("year")
+	team = r.URL.Query().Get("team")
+
+	//y, _ := strconv.Atoi(year)
+
+	// ADD DB support here
+
+	url := baseURL + "games" + "?year=" + year + "&team=" + team
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Print(err)
+	}
+
+	req.Header.Add("Authorization", bearer)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Print(err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Print(err)
+	}
+
+	err = json.Unmarshal(body, &games)
+
+	var simpleGames []SimpleGame
+	var simpleGame SimpleGame
+
+	for i := range games {
+		simpleGame.Id = i
+		simpleGame.HomeTeam = games[i].HomeTeam
+		simpleGame.HomePoints = games[i].HomePoints
+		simpleGame.AwayTeam = games[i].AwayTeam
+		simpleGame.AwayPoints = games[i].AwayPoints
+		simpleGames = append(simpleGames, simpleGame)
+	}
+
+	toSend, _ := json.Marshal(simpleGames)
+	_, err = io.WriteString(w, string(toSend))
+	if err != nil {
+		fmt.Print(err)
+		return
+	}
+	fmt.Print("Sent games!")
+
+}
+
 func records(w http.ResponseWriter, r *http.Request) {
 	var teamRecords []Record
 	var client http.Client
@@ -89,7 +145,6 @@ func records(w http.ResponseWriter, r *http.Request) {
 			fmt.Print(err)
 			return
 		}
-
 		for i := range teamRecords {
 			insertRecord(db, teamRecords[i])
 		}
@@ -123,6 +178,8 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/records", records)
+
+	mux.HandleFunc("/games", games)
 
 	err = http.ListenAndServe(":5050", mux)
 	if err != nil {
