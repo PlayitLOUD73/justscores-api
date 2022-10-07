@@ -62,35 +62,51 @@ func games(w http.ResponseWriter, r *http.Request) {
 	year = r.URL.Query().Get("year")
 	team = r.URL.Query().Get("team")
 
-	//y, _ := strconv.Atoi(year)
+	newTeam := strings.Replace(team, " ", "%20", -1)
+
+	y, _ := strconv.Atoi(year)
 
 	// ADD DB support here
 
-	url := baseURL + "games" + "?year=" + year + "&team=" + team
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		fmt.Print(err)
+	results := selectGamesTeam(db, y, team)
+
+	if results != nil {
+		games = results
+	} else {
+
+		url := baseURL + "games" + "?year=" + year + "&team=" + newTeam
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			fmt.Print(err)
+		}
+
+		req.Header.Add("Authorization", bearer)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Print(err)
+		}
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Print(err)
+		}
+
+		err = json.Unmarshal(body, &games)
+
+		for i := range games {
+			insertGameTeam(db, games[i])
+		}
+
+		games = selectGamesTeam(db, y, team)
+
 	}
-
-	req.Header.Add("Authorization", bearer)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Print(err)
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Print(err)
-	}
-
-	err = json.Unmarshal(body, &games)
 
 	var simpleGames []SimpleGame
 	var simpleGame SimpleGame
 
 	for i := range games {
-		simpleGame.Id = i
+		simpleGame.Id = games[i].Id
 		simpleGame.HomeTeam = games[i].HomeTeam
 		simpleGame.HomePoints = games[i].HomePoints
 		simpleGame.AwayTeam = games[i].AwayTeam
@@ -99,7 +115,8 @@ func games(w http.ResponseWriter, r *http.Request) {
 	}
 
 	toSend, _ := json.Marshal(simpleGames)
-	_, err = io.WriteString(w, string(toSend))
+	fmt.Println(simpleGames)
+	_, err := io.WriteString(w, string(toSend))
 	if err != nil {
 		fmt.Print(err)
 		return
