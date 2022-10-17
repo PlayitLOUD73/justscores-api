@@ -5,13 +5,14 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 //go:embed "secrets.txt"
@@ -181,6 +182,42 @@ func records(w http.ResponseWriter, r *http.Request) {
 	fmt.Print("success!")
 }
 
+func pullTeams(w http.ResponseWriter, r *http.Request) {
+
+	// need to generalize for every season
+	var client http.Client
+	var teams []Team
+	var bearer string = "Bearer " + PAT
+
+	url := baseURL + "teams/fbs" + "?year=2022"
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Print(err)
+	}
+
+	req.Header.Add("Authorization", bearer)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Print(err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	err = json.Unmarshal(body, &teams)
+	if err != nil {
+		fmt.Print(err)
+		return
+	}
+
+	for i := range teams {
+		insertTeam(db, teams[i])
+	}
+
+	fmt.Print("Successfully pulled teams!")
+
+}
+
 func main() {
 
 	keyInfo := strings.Split(rawKey, "=")
@@ -197,6 +234,8 @@ func main() {
 	mux.HandleFunc("/records", records)
 
 	mux.HandleFunc("/games", games)
+
+	mux.HandleFunc("/updateTeams", pullTeams)
 
 	err = http.ListenAndServe(":5050", mux)
 	if err != nil {
