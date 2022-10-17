@@ -7,7 +7,7 @@ import (
 
 func selectConferenceYear(db *sql.DB, year int, conference string) []Record {
 
-	results, err := db.Query("SELECT * FROM teams WHERE conference=? AND recYear=?", conference, year)
+	results, err := db.Query("SELECT * FROM records WHERE conference=? AND recYear=?", conference, year)
 
 	var ret []Record
 
@@ -39,7 +39,7 @@ func selectConferenceYear(db *sql.DB, year int, conference string) []Record {
 
 func insertRecord(db *sql.DB, team Record) {
 
-	stmt, err := db.Prepare("INSERT INTO teams (recYear, team, conference, division, expectedWins, " +
+	stmt, err := db.Prepare("INSERT INTO records (recYear, team, conference, division, expectedWins, " +
 		"totalGames, totalWins, totalLosses, totalTies, conGames, conWins, conLosses, conTies, " +
 		"homeGames, homeWins, homeLosses, homeTies, awayGames, awayWins, awayLosses, awayTies) " +
 		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
@@ -125,4 +125,70 @@ func insertGameTeam(db *sql.DB, game Game) {
 	} else {
 		fmt.Println("Entry into game db is successful")
 	}
+}
+
+// very basic needs to be redone to support returning the location
+func selectLocation(db *sql.DB, venueID int) bool {
+
+	results, err := db.Query("SELECT * FROM locations WHERE venueId=?", venueID)
+	if err != nil {
+		fmt.Println(err.Error())
+		return false
+	}
+	if results == nil {
+		return false
+	} else {
+		return true
+	}
+}
+
+func insertLocation(db *sql.DB, loc StadiumLocation) {
+
+	if !selectLocation(db, loc.VenueID) {
+		return
+	}
+
+	stmt, err := db.Prepare("INSERT INTO locations VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	} else {
+		fmt.Println("Preparating successful for location insert.")
+	}
+
+	_, err = stmt.Exec(loc.VenueID, loc.Name, loc.City, loc.State, loc.Zip,
+		loc.CountryCode, loc.Timezone, loc.Latitude, loc.Longitude, loc.Elevation,
+		loc.Capacity, loc.YearConstructed, loc.Grass, loc.Dome)
+
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("Entry into location db is successful")
+	}
+
+}
+
+func insertTeam(db *sql.DB, team Team) {
+
+	insertLocation(db, team.Location)
+
+	stmt, err := db.Prepare("INSERT INTO teams VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	} else {
+		fmt.Println("Preparing successful for team insert.")
+	}
+
+	_, err = stmt.Exec(team.ID, team.School, team.Mascot, team.Abbreviation, team.AltName1,
+		team.AltName2, team.AltName3, team.Conference, team.Division,
+		team.Color, team.AltColor, team.Logos[0], team.Logos[1], team.Twitter,
+		team.Location.VenueID)
+
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("Entry into team db is successful")
+	}
+
 }
